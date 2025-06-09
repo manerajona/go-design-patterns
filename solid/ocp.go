@@ -1,4 +1,4 @@
-package main
+package solid
 
 type Color int
 
