@@ -13,17 +13,17 @@ func testBehaviour(t *testing.T, p Parallelogram, newHeight int) {
 	}
 }
 
-func TestRectangleBehaviour_pass(t *testing.T) {
+func TestRectangleBehaviour_Pass(t *testing.T) {
 	rectangle := &Rectangle{2, 3}
 	testBehaviour(t, rectangle, 10)
 }
 
-func TestNaiveSquareBehaviour_fail(t *testing.T) {
+func TestNaiveSquareBehaviour_Fail(t *testing.T) {
 	square := NewNaiveSquare(5)
 	testBehaviour(t, square, 10)
 }
 
-func TestSquareBehaviour_pass(t *testing.T) {
+func TestSquareBehaviour_Pass(t *testing.T) {
 	square := &Square{size: 5}
 	testBehaviour(t, square.Rectangle(), 10)
 }
