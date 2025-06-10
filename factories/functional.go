@@ -1,4 +1,4 @@
-package Factories
+package factories
 
 type Employee struct {
 	name     string
