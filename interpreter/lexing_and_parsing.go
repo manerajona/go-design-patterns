@@ -1,9 +1,7 @@
 package interpreter
 
 import (
-	"fmt"
 	"strconv"
-	"strings"
 	"unicode"
 )
 
@@ -13,10 +11,6 @@ type Element interface {
 
 type Integer struct {
 	value int
-}
-
-func NewInteger(value int) *Integer {
-	return &Integer{value: value}
 }
 
 func (i *Integer) Value() int {
@@ -31,19 +25,19 @@ const (
 )
 
 type BinaryOperation struct {
-	Type        Operation
-	Left, Right Element
+	Op    Operation
+	Left  Element
+	Right Element
 }
 
 func (b *BinaryOperation) Value() int {
-	switch b.Type {
+	switch b.Op {
 	case Addition:
 		return b.Left.Value() + b.Right.Value()
 	case Subtraction:
-		return b.Left.Value() + b.Right.Value()
-	default:
-		panic("Unsupported operation")
+		return b.Left.Value() - b.Right.Value()
 	}
+	panic("unsupported operation")
 }
 
 type TokenType int
@@ -61,93 +55,88 @@ type Token struct {
 	Text string
 }
 
-func (t *Token) String() string {
-	return fmt.Sprintf("`%s`", t.Text)
-}
-
 func Lex(input string) []Token {
-	var result []Token
-
-	// not using range here
-	for i := 0; i < len(input); i++ {
-		switch input[i] {
-		case '+':
-			result = append(result, Token{Plus, "+"})
-		case '-':
-			result = append(result, Token{Minus, "-"})
-		case '(':
-			result = append(result, Token{Lparen, "("})
-		case ')':
-			result = append(result, Token{Rparen, ")"})
-		default:
-			sb := strings.Builder{}
-			for j := i; j < len(input); j++ {
-				if unicode.IsDigit(rune(input[j])) {
-					sb.WriteRune(rune(input[j]))
-					i++
-				} else {
-					result = append(result, Token{
-						Int, sb.String()})
-					i--
-					break
-				}
+	var tokens []Token
+	i := 0
+	for i < len(input) {
+		c := input[i]
+		switch {
+		case unicode.IsSpace(rune(c)):
+			i++
+		case c == '+':
+			tokens = append(tokens, Token{Plus, "+"})
+			i++
+		case c == '-':
+			tokens = append(tokens, Token{Minus, "-"})
+			i++
+		case c == '(':
+			tokens = append(tokens, Token{Lparen, "("})
+			i++
+		case c == ')':
+			tokens = append(tokens, Token{Rparen, ")"})
+			i++
+		case unicode.IsDigit(rune(c)):
+			j := i
+			for j < len(input) && unicode.IsDigit(rune(input[j])) {
+				j++
 			}
+			tokens = append(tokens, Token{Int, input[i:j]})
+			i = j
+		default:
+			i++
 		}
 	}
-	return result
+	return tokens
 }
 
 func Parse(tokens []Token) Element {
-	result := BinaryOperation{}
-	haveLhs := false
-	for i := 0; i < len(tokens); i++ {
-		token := &tokens[i]
-		switch token.Type {
+	var lhs Element
+	var op Operation
+	var rhs Element
+	i := 0
+	for i < len(tokens) {
+		tok := tokens[i]
+		switch tok.Type {
 		case Int:
-			n, _ := strconv.Atoi(token.Text)
-			integer := Integer{n}
-			if !haveLhs {
-				result.Left = &integer
-				haveLhs = true
+			val, _ := strconv.Atoi(tok.Text)
+			if lhs == nil {
+				lhs = &Integer{val}
 			} else {
-				result.Right = &integer
+				rhs = &Integer{val}
 			}
+			i++
 		case Plus:
-			result.Type = Addition
+			op = Addition
+			i++
 		case Minus:
-			result.Type = Subtraction
+			op = Subtraction
+			i++
 		case Lparen:
-			j := i
+			j := i + 1
+			balance := 1
 			for ; j < len(tokens); j++ {
-				if tokens[j].Type == Rparen {
-					break
+				if tokens[j].Type == Lparen {
+					balance++
+				} else if tokens[j].Type == Rparen {
+					balance--
+					if balance == 0 {
+						break
+					}
 				}
 			}
-			// now j points to closing bracket, so
-			// process subexpression without opening
-			var subexp []Token
-			for k := i + 1; k < j; k++ {
-				subexp = append(subexp, tokens[k])
-			}
-			element := Parse(subexp)
-			if !haveLhs {
-				result.Left = element
-				haveLhs = true
+			subexpr := Parse(tokens[i+1 : j])
+			if lhs == nil {
+				lhs = subexpr
 			} else {
-				result.Right = element
+				rhs = subexpr
 			}
-			i = j
+			i = j + 1
+		default:
+			i++
 		}
 	}
-	return &result
-}
-
-func main() {
-	input := "(13+4)-(12+1)"
-	tokens := Lex(input)
-	fmt.Println(tokens)
-
-	parsed := Parse(tokens)
-	fmt.Printf("%s = %d\n",
-		input, parsed.Value())
+	if rhs == nil {
+		return lhs
+	}
+	return &BinaryOperation{Op: op, Left: lhs, Right: rhs}
 }
